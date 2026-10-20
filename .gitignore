@@ -428,3 +428,4 @@ FodyWeavers.xsd
 #*.lscache
 *.vcxproj
 *.filters
+*.sln
