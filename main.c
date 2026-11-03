@@ -36,11 +36,11 @@
 #define MAP_TREE          'T'
 #define MAP_STONE         'R'
 #define MAP_UNKNOWN       '?'
-#define MAP_CAMP          '^'     /* кострище / лагерь            */
+#define MAP_CAMP          '^'
 #define OBSTACLE_MIN_PCT  15
 #define OBSTACLE_MAX_PCT  30
-#define REVEAL_RADIUS     6       /* радиус «крика»               */
-#define REVEAL_STEPS      3       /* шагов видно после крика      */
+#define REVEAL_RADIUS     6
+#define REVEAL_STEPS      3
 
 /* Клавиши */
 #define KEY_UP            'W'
@@ -64,16 +64,20 @@ static int  current_day = 1;
 static int  current_hour = 8;
 
 /* ======================= СОСТОЯНИЕ ПРИКЛЮЧЕНИЯ ======================= */
-static char** map = NULL;  /* динамическая карта               */
-static int    map_h = 0;     /* высота                           */
-static int    map_w = 0;     /* ширина                           */
-static int    hero_x = 0;     /* столбец героя                    */
-static int    hero_y = 0;     /* строка героя                     */
-static int    camp_x = 0;     /* столбец кострища                 */
-static int    camp_y = 0;     /* строка кострища                  */
-static int    reveal_timer = 0;  /* шагов «света» осталось           */
-static int    adv_active = 0;  /* идёт ли приключение              */
-static int    distance_from_home = 0; /* сколько карт пройдено       */
+static char** map = NULL;
+static int    map_h = 0;
+static int    map_w = 0;
+static int    hero_x = 0;
+static int    hero_y = 0;
+static int    camp_x = 0;
+static int    camp_y = 0;
+
+static int    reveal_timer = 0;   /* сколько шагов ещё видно       */
+static int    reveal_x = -1;   /* столбец, где крикнули         */
+static int    reveal_y = -1;   /* строка, где крикнули          */
+
+static int    adv_active = 0;
+static int    distance_from_home = 0;
 
 /* ======================= ЗАЩИТА ВВОДА ======================= */
 
@@ -188,9 +192,8 @@ static void ask_farmer_name(void)
     }
 }
 
-/* ======================= СТАРЫЙ ФУНКЦИОНАЛ (лабы 2-3) ======================= */
 
-static void show_time(void)
+static void show_time(void) //Время
 {
     printf("Текущее время: День %d, %02d:00\n", current_day, current_hour);
 }
@@ -215,7 +218,7 @@ static void skip_time(void)
         hours, current_day, current_hour);
 }
 
-static void print_inventory(void)
+static void print_inventory(void) //Инвентарь
 {
     printf("Инвентарь:\n");
     for (int i = 0; i < MAX_INVENTORY; i++)
@@ -248,7 +251,7 @@ static void add_item_to_slot(void)
         slot, id, item_name(id));
 }
 
-static void remove_item_from_slot(void)
+static void remove_item_from_slot(void) //Слот
 {
     int slot;
     printf("Введите номер слота для очистки (0-%d): ", MAX_INVENTORY - 1);
@@ -480,7 +483,6 @@ static void process_input_file(void)
 
 /* ======================= [10] ПРИКЛЮЧЕНИЕ ======================= */
 
-/* Освобождение карты (сначала строки, потом массив указателей). */
 static void free_map(void)
 {
     if (map == NULL) return;
@@ -492,7 +494,6 @@ static void free_map(void)
     map_w = 0;
 }
 
-/* Выделение карты height × width. При ошибке — откат. */
 static int alloc_map(int height, int width)
 {
     map = (char**)malloc(height * sizeof(char*));
@@ -514,7 +515,6 @@ static int alloc_map(int height, int width)
     return OK;
 }
 
-/* Поставить героя на случайную свободную клетку внутри. */
 static void place_hero(void)
 {
     if (map_h < 3 || map_w < 3) { hero_y = hero_x = 1; return; }
@@ -527,7 +527,6 @@ static void place_hero(void)
     } while (map[hero_y][hero_x] != MAP_FLOOR && attempts < 1000);
 }
 
-/* Поставить кострище на случайную свободную клетку, отличную от героя. */
 static void place_camp(void)
 {
     if (map_h < 3 || map_w < 3) { camp_y = camp_x = 1; return; }
@@ -543,8 +542,6 @@ static void place_camp(void)
     map[camp_y][camp_x] = MAP_CAMP;
 }
 
-/* Генерация карты: без сплошных границ — стены только по краям,
-   но каждый край с вероятностью ~50% имеет проход. */
 static int generate_map(void)
 {
     free_map();
@@ -558,30 +555,28 @@ static int generate_map(void)
         return ERR_MEMORY;
     }
 
-    /* Заполняем всё полом, затем рисуем стены по краям */
     for (int y = 0; y < h; y++)
         for (int x = 0; x < w; x++)
             map[y][x] = MAP_FLOOR;
 
-    /* Верхний и нижний края — с проходами */
+    /* Края с проходами (без сплошных стен) */
     for (int x = 0; x < w; x++)
     {
         if (rand() % 2 == 0) map[0][x] = MAP_WALL;
         if (rand() % 2 == 0) map[h - 1][x] = MAP_WALL;
     }
-    /* Левый и правый края — с проходами */
     for (int y = 0; y < h; y++)
     {
         if (rand() % 2 == 0) map[y][0] = MAP_WALL;
         if (rand() % 2 == 0) map[y][w - 1] = MAP_WALL;
     }
-    /* Углы — всегда стены (чтобы не было «дырявых» углов) */
+    /* Углы — всегда стены */
     map[0][0] = MAP_WALL;
     map[0][w - 1] = MAP_WALL;
     map[h - 1][0] = MAP_WALL;
     map[h - 1][w - 1] = MAP_WALL;
 
-    /* Внутренние препятствия (только внутри, не на краях) */
+    /* Внутренние препятствия */
     for (int y = 1; y < h - 1; y++)
     {
         for (int x = 1; x < w - 1; x++)
@@ -595,26 +590,22 @@ static int generate_map(void)
         }
     }
 
-    /* Герой и кострище */
     place_hero();
     place_camp();
 
     reveal_timer = 0;
+    reveal_x = -1;   /* сброс точки крика */
+    reveal_y = -1;
     return OK;
 }
 
-/* Можно ли пройти в клетку (x, y)? Здесь границы НЕ блокируют —
-   выход за край означает переход на новую карту. */
 static int is_walkable(int x, int y)
 {
-    /* выход за пределы массива — разрешаем (это переход) */
     if (x < 0 || x >= map_w || y < 0 || y >= map_h) return 1;
-
     char c = map[y][x];
     return c != MAP_WALL && c != MAP_TREE && c != MAP_STONE;
 }
 
-/* Отрисовка карты с учётом «тьмы» (вариант 6). */
 static void draw_map(void)
 {
     printf("\n");
@@ -625,23 +616,22 @@ static void draw_map(void)
             char cell = map[y][x];
             int in_reveal = 0;
 
-            if (reveal_timer > 0)
+            /* Радиус считается ОТ ТОЧКИ КРИКА, а не от героя */
+            if (reveal_timer > 0 && reveal_x >= 0 && reveal_y >= 0)
             {
-                int dx = x - hero_x;
-                int dy = y - hero_y;
+                int dx = x - reveal_x;
+                int dy = y - reveal_y;
                 if (dx * dx + dy * dy <= REVEAL_RADIUS * REVEAL_RADIUS)
                     in_reveal = 1;
             }
 
             if (in_reveal)
             {
-                /* В радиусе видно как есть; герой выделяется */
                 if (cell == MAP_HERO) putchar(MAP_HERO);
                 else                  putchar(cell);
             }
             else
             {
-                /* Вне радиуса — тьма, но герой всегда виден */
                 if (cell == MAP_HERO) putchar(MAP_HERO);
                 else                  putchar(MAP_UNKNOWN);
             }
@@ -650,7 +640,8 @@ static void draw_map(void)
     }
 
     if (reveal_timer > 0)
-        printf("Свет: ещё %d шаг(а) видно.\n", reveal_timer);
+        printf("Свет: ещё %d шаг(а) видно (в точке %d,%d).\n",
+            reveal_timer, reveal_x, reveal_y);
     else
         printf("Темно. Нажмите R, чтобы крикнуть.\n");
 
@@ -659,19 +650,18 @@ static void draw_map(void)
     printf("W/A/S/D — шаг, R — крик, Q — домой (только на '^').\n");
 }
 
-/* Шаг героя. Если шаг уводит за край — переход на новую карту. */
 static void try_move(int dx, int dy)
 {
     int nx = hero_x + dx;
     int ny = hero_y + dy;
 
-    /* --- Переход на новую карту: шаг за пределы массива --- */
+    /* Переход на новую карту: шаг за пределы массива */
     if (nx < 0 || nx >= map_w || ny < 0 || ny >= map_h)
     {
         printf("Вы вышли за край леса... Генерируется новый участок.\n");
 
-        free_map();                          /* освобождаем старую карту */
-        distance_from_home++;                /* +1 к дальности           */
+        free_map();
+        distance_from_home++;
 
         if (generate_map() != OK)
         {
@@ -679,31 +669,29 @@ static void try_move(int dx, int dy)
             adv_active = 0;
             return;
         }
-        return;                              /* герой уже на новой карте */
+        return;
     }
 
-    /* --- Обычный шаг --- */
     if (!is_walkable(nx, ny))
     {
-        printf("Туда нельзя — препятствие или стена.\n");
+        printf("Туда нельзя — препятствие.\n");
         return;
     }
 
     char target = map[ny][nx];
 
-    map[hero_y][hero_x] = MAP_FLOOR;         /* стереть старого героя    */
+    map[hero_y][hero_x] = MAP_FLOOR;
     hero_x = nx;
     hero_y = ny;
 
     if (target == MAP_CAMP)
         printf("Вы у костра. Можно отдохнуть (Q).\n");
 
-    map[hero_y][hero_x] = MAP_HERO;          /* поставить нового героя   */
+    map[hero_y][hero_x] = MAP_HERO;
 
     if (reveal_timer > 0) reveal_timer--;
 }
 
-/* Главный цикл приключения. */
 static void adventure_loop(void)
 {
     printf("\n=== НОЧНОЙ ЛЕС ===\n");
@@ -733,12 +721,13 @@ static void adventure_loop(void)
         else if (c == KEY_REVEAL || c == KEY_REVEAL_LOW)
         {
             reveal_timer = REVEAL_STEPS;
+            reveal_x = hero_x;   /* ← запоминаем точку крика */
+            reveal_y = hero_y;
             printf("Вы крикнули! Препятствия в радиусе %d раскрыты на %d шага.\n",
                 REVEAL_RADIUS, REVEAL_STEPS);
         }
         else if (c == KEY_QUIT || c == KEY_QUIT_LOW)
         {
-            /* Q работает только если герой стоит на клетке костра */
             if (map[hero_y][hero_x] == MAP_CAMP)
             {
                 adv_active = 0;
@@ -756,10 +745,9 @@ static void adventure_loop(void)
     }
 }
 
-/* Пункт [10]: запуск приключения с гарантированной очисткой. */
 static void start_adventure(void)
 {
-    distance_from_home = 0;                  /* сброс счётчика           */
+    distance_from_home = 0;
 
     if (generate_map() != OK)
         return;
