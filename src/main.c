@@ -59,7 +59,7 @@ static Player* menu_create_player(Player* old_player)
     return player_create(name);
 }
 
-/* Подменю «Управление снаряжением» (вариант 8). */
+/* Подменю «Управление снаряжением» */  //Из варианта
 static void menu_equipment(Player* player)
 {
     if (player == NULL) {
