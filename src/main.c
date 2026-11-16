@@ -1,11 +1,16 @@
 ﻿#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #include "player.h"
 #include "map.h"
 #include "utils.h"
 
-/* ======================= КОДЫ МЕНЮ ======================= */
+/* ======================= КОДЫ ПУНКТОВ МЕНЮ ======================= */
 #define MENU_EXIT             0
 #define MENU_CREATE_PLAYER    1
 #define MENU_PLAYER_CARD      2
@@ -21,8 +26,9 @@
 #define MENU_ENCYCLOPEDIA     12
 #define MENU_MAX              12
 
-/* ======================= ВСПОМОГАТЕЛЬНЫЕ ======================= */
+/* ======================= ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ======================= */
 
+/* Спрашивает имя фермера с защитой от пустого ввода. */
 static void ask_farmer_name(char* out, int size)
 {
     while (1) {
@@ -36,6 +42,7 @@ static void ask_farmer_name(char* out, int size)
     }
 }
 
+/* Создание / пересоздание персонажа с подтверждением удаления старого. */
 static Player* menu_create_player(Player* old_player)
 {
     if (old_player != NULL) {
@@ -52,6 +59,7 @@ static Player* menu_create_player(Player* old_player)
     return player_create(name);
 }
 
+/* Подменю «Управление снаряжением» (вариант 8). */
 static void menu_equipment(Player* player)
 {
     if (player == NULL) {
@@ -130,6 +138,7 @@ static void menu_equipment(Player* player)
     }
 }
 
+/* Добавление предмета в слот инвентаря. */
 static void menu_add_item(Player* player)
 {
     if (player == NULL) { printf("Нет персонажа.\n"); return; }
@@ -148,6 +157,7 @@ static void menu_add_item(Player* player)
     player_add_item_to_slot(player, slot, id);
 }
 
+/* Очистка слота инвентаря. */
 static void menu_clear_slot(Player* player)
 {
     if (player == NULL) { printf("Нет персонажа.\n"); return; }
@@ -161,6 +171,7 @@ static void menu_clear_slot(Player* player)
     player_clear_slot(player, slot);
 }
 
+/* Проверка соседних ячеек. */
 static void menu_neighbours(Player* player)
 {
     if (player == NULL) { printf("Нет персонажа.\n"); return; }
@@ -179,6 +190,7 @@ static void menu_neighbours(Player* player)
     player_check_neighbours(player, id1, id2);
 }
 
+/* Поиск предмета по названию. */
 static void menu_search_item(Player* player)
 {
     if (player == NULL) { printf("Нет персонажа.\n"); return; }
@@ -192,6 +204,7 @@ static void menu_search_item(Player* player)
     player_search_item(player, query);
 }
 
+/* Запись дневника — параметры вместо глобалок. */
 static void menu_diary(Player* player, const GameState* game)
 {
     if (player == NULL) { printf("Нет персонажа.\n"); return; }
@@ -201,7 +214,7 @@ static void menu_diary(Player* player, const GameState* game)
         player->inventory, MAX_INVENTORY);
 }
 
-/* ======================= ГЛАВНОЕ МЕНЮ ======================= */
+/* ======================= ВЫВОД ШАПКИ И МЕНЮ ======================= */
 
 static void print_header(const Player* player, const GameState* game)
 {
@@ -231,8 +244,15 @@ static void print_menu(void)
     printf("Выбор: ");
 }
 
+/* ======================= MAIN ======================= */
+
 int main(void)
 {
+#ifdef _WIN32
+    SetConsoleCP(65001);
+    SetConsoleOutputCP(65001);
+#endif
+
     items_load("items.txt");
 
     Player* player = NULL;
@@ -286,4 +306,45 @@ int main(void)
 
         case MENU_INVENTORY:
             if (player == NULL) { printf("Сначала создайте персонажа!\n"); break; }
-            player
+            player_print_inventory(player);
+            break;
+
+        case MENU_ADD_ITEM:
+            menu_add_item(player);
+            break;
+
+        case MENU_CLEAR_SLOT:
+            menu_clear_slot(player);
+            break;
+
+        case MENU_NEIGHBOURS:
+            menu_neighbours(player);
+            break;
+
+        case MENU_SEARCH_ITEM:
+            menu_search_item(player);
+            break;
+
+        case MENU_DIARY:
+            menu_diary(player, game);
+            break;
+
+        case MENU_ENCYCLOPEDIA:
+            process_input_file();
+            break;
+
+        case MENU_EXIT:
+            printf("Выход из программы.\n");
+            break;
+
+        default:
+            break;
+        }
+    }
+
+    /* Очистка динамической памяти при выходе */
+    if (player != NULL) player_destroy(player);
+    if (game != NULL) game_destroy(game);
+
+    return 0;
+}
