@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-/* ======================= КОНСТАНТЫ  ======================= */
+/* ======================= КОНСТАНТЫ ======================= */
 #define MAX_ITEMS         10
 #define MAX_INVENTORY     10
 #define MAX_NAME_LEN      64
@@ -27,7 +27,7 @@
 #define MENU_MIN          0
 #define MENU_MAX          10
 
-/* ======================= КОНСТАНТЫ ПРИКЛЮЧЕНИЯ  ======================= */
+/* ======================= КОНСТАНТЫ ПРИКЛЮЧЕНИЯ ======================= */
 #define MAP_MIN_SIZE      5
 #define MAP_MAX_SIZE      30
 #define MAP_WALL          '#'
@@ -73,8 +73,8 @@ static int    camp_x = 0;
 static int    camp_y = 0;
 
 static int    reveal_timer = 0;   /* сколько шагов ещё видно       */
-static int    reveal_x = -1;   /* столбец, где крикнули         */
-static int    reveal_y = -1;   /* строка, где крикнули          */
+static int    reveal_x = -1;      /* столбец, где крикнули         */
+static int    reveal_y = -1;      /* строка, где крикнули          */
 
 static int    adv_active = 0;
 static int    distance_from_home = 0;
@@ -192,6 +192,7 @@ static void ask_farmer_name(void)
     }
 }
 
+/* ======================= СТАРЫЙ ФУНКЦИОНАЛ ======================= */
 
 static void show_time(void) //Время
 {
@@ -539,6 +540,7 @@ static void place_camp(void)
     } while ((map[camp_y][camp_x] != MAP_FLOOR ||
         (camp_y == hero_y && camp_x == hero_x)) && attempts < 1000);
 
+    /* Принудительно пол, потом костёр (на случай 1000 неудач) */
     map[camp_y][camp_x] = MAP_CAMP;
 }
 
@@ -570,7 +572,7 @@ static int generate_map(void)
         if (rand() % 2 == 0) map[y][0] = MAP_WALL;
         if (rand() % 2 == 0) map[y][w - 1] = MAP_WALL;
     }
-    /* Углы — всегда стены */
+    /* Углы*/
     map[0][0] = MAP_WALL;
     map[0][w - 1] = MAP_WALL;
     map[h - 1][0] = MAP_WALL;
@@ -680,7 +682,12 @@ static void try_move(int dx, int dy)
 
     char target = map[ny][nx];
 
-    map[hero_y][hero_x] = MAP_FLOOR;
+    /* Если уходим с клетки костра — вернуть '^', иначе '.' */
+    if (hero_x == camp_x && hero_y == camp_y)
+        map[hero_y][hero_x] = MAP_CAMP;
+    else
+        map[hero_y][hero_x] = MAP_FLOOR;
+
     hero_x = nx;
     hero_y = ny;
 
@@ -728,7 +735,8 @@ static void adventure_loop(void)
         }
         else if (c == KEY_QUIT || c == KEY_QUIT_LOW)
         {
-            if (map[hero_y][hero_x] == MAP_CAMP)
+            /* Проверяем ПО КООРДИНАТАМ: герой стоит на клетке костра? */
+            if (hero_x == camp_x && hero_y == camp_y)
             {
                 adv_active = 0;
                 printf("Вы отдохнули у костра и вернулись домой.\n");
