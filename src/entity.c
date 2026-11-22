@@ -18,25 +18,25 @@
 #define FLOOR_MULT           2
 #define INTERACT_STAMINA     2
 
-Entity *entities_create(int count)
+Entity* entities_create(int count)
 {
     if (count <= 0) return NULL;
-    Entity *arr = (Entity *)malloc(count * sizeof(Entity));
+    Entity* arr = (Entity*)malloc(count * sizeof(Entity));
     if (arr == NULL) {
         printf("Ошибка: не удалось выделить память под сущности.\n");
         return NULL;
     }
     printf("Память массива сущностей по адресу %p выделена (%d шт.)\n",
-           (void *)arr, count);
+        (void*)arr, count);
     return arr;
 }
 
-void entities_destroy(Entity *entities, int count)
+void entities_destroy(Entity* entities, int count)
 {
     (void)count;
     if (entities == NULL) return;
     printf("Память массива сущностей по адресу %p освобождена\n",
-           (void *)entities);
+        (void*)entities);
     free(entities);
 }
 
@@ -45,8 +45,8 @@ static int rand_range(int min, int max)
     return min + rand() % (max - min + 1);
 }
 
-int entities_generate(Entity *entities, int max_count,
-                      int map_w, int map_h, int floor)
+int entities_generate(Entity* entities, int max_count,
+    int map_w, int map_h, int floor)
 {
     if (entities == NULL || max_count <= 0) return 0;
 
@@ -64,10 +64,12 @@ int entities_generate(Entity *entities, int max_count,
         int busy = 0;
         for (int k = 0; k < created; k++)
             if (entities[k].is_alive &&
-                entities[k].x == x && entities[k].y == y) { busy = 1; break; }
+                entities[k].x == x && entities[k].y == y) {
+                busy = 1; break;
+            }
         if (busy) continue;
 
-        Entity *e = &entities[created];
+        Entity* e = &entities[created];
         memset(e, 0, sizeof(Entity));
         e->x = x;
         e->y = y;
@@ -78,20 +80,23 @@ int entities_generate(Entity *entities, int max_count,
             e->type = ENT_MONSTER;
             e->symbol = 'M';
             e->hp = e->max_hp = MONSTER_HP_BASE * floor * FLOOR_MULT;
-            e->attack   = MONSTER_ATK_BASE + floor;
-            e->defense  = MONSTER_DEF_BASE + floor / 2;
+            e->attack = MONSTER_ATK_BASE + floor;
+            e->defense = MONSTER_DEF_BASE + floor / 2;
             e->gold_reward = MONSTER_GOLD_BASE * floor;
-        } else if (roll <= MONSTER_PERCENT + HEAL_PERCENT) {
+        }
+        else if (roll <= MONSTER_PERCENT + HEAL_PERCENT) {
             e->type = ENT_HEAL;
             e->symbol = '+';
             e->hp = e->max_hp = 1;
-        } else {
+        }
+        else {
             if (rand() % 2 == 0) {
                 e->type = ENT_TREE;
                 e->symbol = 'T';
                 e->hp = e->max_hp = TREE_HP_BASE * floor;
                 e->drop_item_id = 1;
-            } else {
+            }
+            else {
                 e->type = ENT_ROCK;
                 e->symbol = 'R';
                 e->hp = e->max_hp = ROCK_HP_BASE * floor;
@@ -103,7 +108,7 @@ int entities_generate(Entity *entities, int max_count,
     return created;
 }
 
-Entity *entity_at(Entity *entities, int count, int x, int y)
+Entity* entity_at(Entity* entities, int count, int x, int y)
 {
     if (entities == NULL) return NULL;
     for (int i = 0; i < count; i++) {
@@ -114,7 +119,7 @@ Entity *entity_at(Entity *entities, int count, int x, int y)
     return NULL;
 }
 
-static int add_to_inventory(Player *p, int item_id)
+static int add_to_inventory(Player* p, int item_id)
 {
     for (int i = 0; i < MAX_INVENTORY; i++) {
         if (p->inventory[i] == ITEM_EMPTY) {
@@ -125,23 +130,23 @@ static int add_to_inventory(Player *p, int item_id)
     return 0;
 }
 
-static void check_shield(Player *p, char *event_buf, int buf_size)
+static void check_shield(Player* p, char* event_buf, int buf_size)
 {
     if (p->shield_used || p->shield_active) return;
     if (p->hp >= p->max_hp / 2) return;
 
     p->shield_active = 1;
-    p->shield_used   = 1;
+    p->shield_used = 1;
 
     size_t len = strlen(event_buf);
     if (len + 60 < (size_t)buf_size) {
         snprintf(event_buf + len, buf_size - len,
-                 " МАГИЧЕСКИЙ ЩИТ активирован!");
+            " МАГИЧЕСКИЙ ЩИТ активирован!");
     }
 }
 
-int entity_interact(Player *player, Entity *e,
-                    char *event_buf, int buf_size, int floor)
+int entity_interact(Player* player, Entity* e,
+    char* event_buf, int buf_size, int floor)
 {
     if (player == NULL || e == NULL || !e->is_alive) return 0;
 
@@ -155,19 +160,21 @@ int entity_interact(Player *player, Entity *e,
 
         if (e->hp <= 0) {
             e->is_alive = 0;
-            const char *name = item_name(e->drop_item_id);
+            const char* name = item_name(e->drop_item_id);
             if (add_to_inventory(player, e->drop_item_id)) {
                 snprintf(event_buf, buf_size,
-                         "Вы добыли %s! (урон %d)", name, dmg);
-            } else {
-                snprintf(event_buf, buf_size,
-                         "Рюкзак полон! %s пропал.", name);
+                    "Вы добыли %s! (урон %d)", name, dmg);
             }
-        } else {
+            else {
+                snprintf(event_buf, buf_size,
+                    "Рюкзак полон! %s пропал.", name);
+            }
+        }
+        else {
             snprintf(event_buf, buf_size,
-                     "Удар по %s: -%d HP (осталось %d/%d)",
-                     e->type == ENT_TREE ? "дереву" : "камню",
-                     dmg, e->hp, e->max_hp);
+                "Удар по %s: -%d HP (осталось %d/%d)",
+                e->type == ENT_TREE ? "дереву" : "камню",
+                dmg, e->hp, e->max_hp);
         }
         return 1;
     }
@@ -183,7 +190,7 @@ int entity_interact(Player *player, Entity *e,
 
         e->is_alive = 0;
         snprintf(event_buf, buf_size,
-                 "Аптечка! +%d HP, +%d стамины", heal_hp, heal_st);
+            "Аптечка! +%d HP, +%d стамины", heal_hp, heal_st);
         return 1;
     }
 
@@ -196,7 +203,7 @@ int entity_interact(Player *player, Entity *e,
             e->is_alive = 0;
             player->gold += e->gold_reward;
             snprintf(event_buf, buf_size,
-                     "Монстр побеждён! +%d золота", e->gold_reward);
+                "Монстр побеждён! +%d золота", e->gold_reward);
             return 1;
         }
 
@@ -206,16 +213,16 @@ int entity_interact(Player *player, Entity *e,
         if (player->shield_active) {
             player->shield_active = 0;
             snprintf(event_buf, buf_size,
-                     "Бой: вы -%d монстру. ЩИТ заблокировал удар! "
-                     "(у монстра %d/%d HP)",
-                     dmg, e->hp, e->max_hp);
+                "Бой: вы -%d монстру. ЩИТ заблокировал удар! "
+                "(у монстра %d/%d HP)",
+                dmg, e->hp, e->max_hp);
             return 1;
         }
 
         player->hp -= mdmg;
         snprintf(event_buf, buf_size,
-                 "Бой: вы -%d монстру, он -%d вам (у монстра %d/%d HP)",
-                 dmg, mdmg, e->hp, e->max_hp);
+            "Бой: вы -%d монстру, он -%d вам (у монстра %d/%d HP)",
+            dmg, mdmg, e->hp, e->max_hp);
 
         check_shield(player, event_buf, buf_size);
         return 1;

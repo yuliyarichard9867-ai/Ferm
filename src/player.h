@@ -15,6 +15,9 @@
 #define START_GOLD        0
 #define ITEM_EMPTY        0
 
+/* ======================= ГАРДЕРОБ ======================= */
+#define PRESET_ITEMS_COUNT  6
+
 /* ======================= ПЕРЕЧИСЛЕНИЯ ======================= */
 enum EquipSlot {
     SLOT_HEAD = 0,
@@ -43,7 +46,7 @@ typedef struct Player {
     int inventory[MAX_INVENTORY];
     Equipment equipment[EQUIP_SLOTS];
 
-    /* магический щит */
+    /* ВАРИАНТ 8: магический щит */
     int shield_used;
     int shield_active;
 } Player;
@@ -58,6 +61,10 @@ void player_recalc_stats(Player* p);
 int  player_equip_item(Player* p, const Equipment* item);
 int  player_unequip_slot(Player* p, enum EquipSlot slot);
 void player_show_equipment(const Player* p);
+
+/* ======================= ГАРДЕРОБ ======================= */
+const Equipment* player_get_preset(int index);
+int              player_get_preset_count(void);
 
 /* ======================= ИНВЕНТАРЬ ======================= */
 void player_print_inventory(const Player* p);

@@ -73,14 +73,10 @@ Map* map_create(int width, int height, int floor)
     Map* m = (Map*)malloc(sizeof(Map));
     if (m == NULL) return NULL;
 
-    m->width = width;
-    m->height = height;
-    m->floor = floor;
-    m->camp_x = -1;
-    m->camp_y = -1;
+    m->width = width; m->height = height; m->floor = floor;
+    m->camp_x = -1; m->camp_y = -1;
     m->shout_timer = 0;
-    m->entities = NULL;
-    m->entity_count = 0;
+    m->entities = NULL; m->entity_count = 0;
 
     m->cells = (char**)malloc(height * sizeof(char*));
     m->visible = (char**)malloc(height * sizeof(char*));
@@ -145,8 +141,7 @@ void map_generate(Map* m)
         int y = rand() % m->height;
         if (m->cells[y][x] == CELL_EMPTY && !(x == 1 && y == 1)) {
             m->cells[y][x] = CELL_CAMP;
-            m->camp_x = x;
-            m->camp_y = y;
+            m->camp_x = x; m->camp_y = y;
             placed = 1;
         }
     }
@@ -154,8 +149,7 @@ void map_generate(Map* m)
         int x = m->width - 2, y = m->height - 2;
         if (x >= 0 && y >= 0) {
             m->cells[y][x] = CELL_CAMP;
-            m->camp_x = x;
-            m->camp_y = y;
+            m->camp_x = x; m->camp_y = y;
         }
     }
 
@@ -173,15 +167,23 @@ void map_generate(Map* m)
 void map_update_visible(Map* m)
 {
     if (m == NULL) return;
+
+    /* 1. Заполняем visible: скрытое — '?', раскрытое — реальный символ */
     for (int y = 0; y < m->height; y++)
         for (int x = 0; x < m->width; x++)
             m->visible[y][x] = m->revealed[y][x] ? m->cells[y][x] : CELL_UNKNOWN;
 
+    /* 2. Накладываем сущности ТОЛЬКО на раскрытые клетки */
     for (int i = 0; i < m->entity_count; i++) {
         Entity* e = &m->entities[i];
-        if (e->is_alive && e->x >= 0 && e->x < m->width &&
-            e->y >= 0 && e->y < m->height)
-            m->visible[e->y][e->x] = e->symbol;
+        if (!e->is_alive) continue;
+        if (e->x < 0 || e->x >= m->width)  continue;
+        if (e->y < 0 || e->y >= m->height) continue;
+
+        /* Если клетка не раскрыта криком — сущность скрыта */
+        if (!m->revealed[e->y][e->x]) continue;
+
+        m->visible[e->y][e->x] = e->symbol;
     }
 }
 
@@ -286,19 +288,13 @@ static enum Direction ask_direction(void)
     }
 }
 
-/* ======================= ГЛАВНЫЙ ЦИКЛ ПРИКЛЮЧЕНИЯ ======================= */
+/* ======================= ГЛАВНЫЙ ЦИКЛ ======================= */
 
 void adventure_run(GameState* game, Player* player)
 {
     if (game == NULL || player == NULL) return;
-    if (player->stamina == 0) {
-        printf("Нельзя отправиться: выносливость равна 0. Отдохните.\n");
-        return;
-    }
-    if (is_night(game)) {
-        printf("Нельзя отправиться: 02:00 ночи — фермер должен спать.\n");
-        return;
-    }
+    if (player->stamina == 0) { printf("Нельзя отправиться: выносливость 0.\n"); return; }
+    if (is_night(game)) { printf("Нельзя отправиться: 02:00 ночи.\n"); return; }
 
     game->map = map_create(random_map_size(), random_map_size(), 1);
     if (game->map == NULL) return;
@@ -330,51 +326,33 @@ void adventure_run(GameState* game, Player* player)
         enum Direction dir = ask_direction();
 
         /* ---------- UPDATE ---------- */
-        if (dir == DIR_SHOUT) {
-            do_shout(game->map, player->x, player->y);
-            continue;
-        }
+        if (dir == DIR_SHOUT) { do_shout(game->map, player->x, player->y); continue; }
         if (dir == DIR_QUIT) {
-            if (player->x == game->map->camp_x &&
-                player->y == game->map->camp_y) {
+            if (player->x == game->map->camp_x && player->y == game->map->camp_y) {
                 printf("Вы вернулись домой. Золото: %d.\n", player->gold);
-                write_diary(player->name, game->current_day,
-                    game->current_hour,
+                write_diary(player->name, game->current_day, game->current_hour,
                     player->inventory, MAX_INVENTORY);
-                map_destroy(game->map);
-                game->map = NULL;
-                running = 0;
+                map_destroy(game->map); game->map = NULL; running = 0;
             }
-            else {
-                printf("Выйти можно только на клетке лагеря ^.\n");
-            }
+            else printf("Выйти можно только на клетке лагеря ^.\n");
             continue;
         }
         if (dir == DIR_NONE) continue;
 
-        int moved = try_move(player, game->map, dir,
-            last_event, sizeof(last_event));
+        int moved = try_move(player, game->map, dir, last_event, sizeof(last_event));
 
         if (moved == MOVE_EDGE) {
             int new_floor = game->map->floor + 1;
-            if (new_floor > MAX_FLOOR) {
-                printf("Достигнут максимальный этаж (%d). Дальше пути нет.\n",
-                    MAX_FLOOR);
-                continue;
-            }
+            if (new_floor > MAX_FLOOR) { printf("Максимальный этаж.\n"); continue; }
             map_destroy(game->map);
-            game->map = map_create(random_map_size(), random_map_size(),
-                new_floor);
+            game->map = map_create(random_map_size(), random_map_size(), new_floor);
             if (game->map == NULL) { running = 0; continue; }
             map_generate(game->map);
             player->x = 1; player->y = 1;
             player->stamina -= FLOOR_STAMINA_COST;
             if (player->stamina < 0) player->stamina = 0;
             game->current_hour += 1;
-            if (game->current_hour >= 24) {
-                game->current_hour -= 24;
-                game->current_day += 1;
-            }
+            if (game->current_hour >= 24) { game->current_hour -= 24; game->current_day += 1; }
             int reward = FLOOR_GOLD_MULT * new_floor;
             player->gold += reward;
             player_reset_shield(player);
@@ -396,8 +374,7 @@ void adventure_run(GameState* game, Player* player)
             }
 
             if (player->stamina == 0) {
-                emergency_evac(player, game,
-                    "Герой падает без сил (stamina = 0)");
+                emergency_evac(player, game, "Герой падает без сил (stamina = 0)");
                 running = 0; continue;
             }
             if (player->hp <= 0) {
@@ -405,15 +382,11 @@ void adventure_run(GameState* game, Player* player)
                 running = 0; continue;
             }
             if (is_night(game)) {
-                emergency_evac(player, game,
-                    "Наступило 02:00 — герой засыпает");
+                emergency_evac(player, game, "Наступило 02:00 — герой засыпает");
                 running = 0; continue;
             }
         }
     }
 
-    if (game->map != NULL) {
-        map_destroy(game->map);
-        game->map = NULL;
-    }
+    if (game->map != NULL) { map_destroy(game->map); game->map = NULL; }
 }

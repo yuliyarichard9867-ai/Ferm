@@ -5,6 +5,28 @@
 #include "player.h"
 #include "utils.h"
 
+/* ======================= ГАРДЕРОБ ======================= */
+
+static const Equipment preset_items[PRESET_ITEMS_COUNT] = {
+    { "Кожаный шлем",     SLOT_HEAD,  5,  0 },
+    { "Стальной шлем",    SLOT_HEAD, 10,  0 },
+    { "Льняная рубаха",   SLOT_BODY, 10,  5 },
+    { "Кольчуга",         SLOT_BODY, 25, 10 },
+    { "Лапти",            SLOT_FEET,  0,  5 },
+    { "Сапоги из карася", SLOT_FEET,  5, 15 }
+};
+
+const Equipment* player_get_preset(int index)
+{
+    if (index < 0 || index >= PRESET_ITEMS_COUNT) return NULL;
+    return &preset_items[index];
+}
+
+int player_get_preset_count(void)
+{
+    return PRESET_ITEMS_COUNT;
+}
+
 /* ======================= ЖИЗНЕННЫЙ ЦИКЛ ======================= */
 
 Player* player_create(const char* name)
@@ -35,7 +57,7 @@ Player* player_create(const char* name)
     for (int i = 0; i < MAX_INVENTORY; i++)
         p->inventory[i] = ITEM_EMPTY;
 
-    /* Стартовая экипировка — предметы уже лежат в слотах */
+    /* Стартовая экипировка */
     p->equipment[SLOT_HEAD] = (Equipment){ "Кожаный шлем",   SLOT_HEAD, 5,  0 };
     p->equipment[SLOT_BODY] = (Equipment){ "Льняная рубаха", SLOT_BODY, 10, 5 };
     p->equipment[SLOT_FEET] = (Equipment){ "Лапти",          SLOT_FEET, 0,  5 };
@@ -229,7 +251,7 @@ void player_print_card(const Player* p)
     if (p->shield_active)
         printf("Щит:           АКТИВЕН (следующий удар заблокирован)\n");
     else if (p->shield_used)
-        printf("Щит:           использован на этом этаже\n");
+        printf("Щит:           использован на этом этапе\n");
 
     printf("========================================\n");
     player_show_equipment(p);

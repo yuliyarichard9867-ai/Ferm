@@ -17,9 +17,9 @@
 #define MENU_CREATE_PLAYER    1
 #define MENU_PLAYER_CARD      2
 #define MENU_EQUIPMENT        3
-#define MENU_TIME             4      /* бывшие 4,5,6 */
-#define MENU_INVENTORY_MENU   5      /* подменю для 7-11 */
-#define MENU_RECORDS_MENU     6      /* бывшие 12,13 */
+#define MENU_TIME             4      
+#define MENU_INVENTORY_MENU   5      
+#define MENU_RECORDS_MENU     6      
 #define MENU_ADVENTURE        7
 #define MENU_MAX              7
 
@@ -74,24 +74,30 @@ static void menu_equipment(Player* player)
 
         switch (choice) {
         case 1: {
-            Equipment e;
-            int slot_choice;
-            printf("Название предмета: ");
-            if (read_line(e.name, MAX_NAME_LEN) != OK || e.name[0] == '\0') {
-                printf("Ошибка ввода названия.\n"); break;
+            int count = player_get_preset_count();
+            printf("\n--- ГАРДЕРОБ ---\n");
+            for (int i = 0; i < count; i++) {
+                const Equipment* e = player_get_preset(i);
+                static const char* slot_names[EQUIP_SLOTS] = { "Голова", "Тело", "Обувь" };
+                printf("[%d] %s (%s) +%d HP +%d ST\n",
+                    i + 1, e->name, slot_names[e->slot],
+                    e->bonus_hp, e->bonus_stamina);
             }
-            printf("Слот (0-Голова, 1-Тело, 2-Обувь): ");
-            if (read_int_range(0, EQUIP_SLOTS - 1, &slot_choice) != OK) {
-                printf("Неверный слот!\n"); break;
+            printf("[0] Отмена\n");
+            printf("Выберите номер: ");
+
+            int pick;
+            if (read_int_range(0, count, &pick) != OK) {
+                printf("Ошибка ввода.\n"); break;
             }
-            e.slot = (enum EquipSlot)slot_choice;
-            printf("Бонус к HP: ");
-            if (read_int_range(0, 1000, &e.bonus_hp) != OK) { printf("Ошибка\n"); break; }
-            printf("Бонус к выносливости: ");
-            if (read_int_range(0, 1000, &e.bonus_stamina) != OK) { printf("Ошибка\n"); break; }
-            player_equip_item(player, &e);
-            printf("Предмет надет. max_hp=%d max_stamina=%d\n",
-                player->max_hp, player->max_stamina);
+            if (pick == 0) break;
+
+            const Equipment* chosen = player_get_preset(pick - 1);
+            if (chosen == NULL) { printf("Неверный номер.\n"); break; }
+
+            player_equip_item(player, chosen);
+            printf("Надет: %s. max_hp=%d max_stamina=%d\n",
+                chosen->name, player->max_hp, player->max_stamina);
             break;
         }
         case 2: {
