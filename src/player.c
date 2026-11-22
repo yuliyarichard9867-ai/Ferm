@@ -1,3 +1,4 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,9 +7,9 @@
 
 /* ======================= ЖИЗНЕННЫЙ ЦИКЛ ======================= */
 
-Player *player_create(const char *name)
+Player* player_create(const char* name)
 {
-    Player *p = (Player *)malloc(sizeof(Player));
+    Player* p = (Player*)malloc(sizeof(Player));
     if (p == NULL) {
         printf("Ошибка: не удалось выделить память под персонажа.\n");
         return NULL;
@@ -19,106 +20,116 @@ Player *player_create(const char *name)
     strncpy(p->name, name, MAX_FARMER_NAME - 1);
     p->name[MAX_FARMER_NAME - 1] = '\0';
 
-    p->max_hp      = BASE_MAX_HP;
+    p->max_hp = BASE_MAX_HP;
     p->max_stamina = BASE_MAX_STAMINA;
-    p->hp          = p->max_hp;
-    p->stamina     = p->max_stamina;
-    p->gold        = START_GOLD;
+    p->hp = p->max_hp;
+    p->stamina = p->max_stamina;
+    p->gold = START_GOLD;
+    p->attack = BASE_ATTACK;
+    p->defense = BASE_DEFENSE;
     p->x = 0;
     p->y = 0;
+    p->shield_used = 0;
+    p->shield_active = 0;
 
     for (int i = 0; i < MAX_INVENTORY; i++)
         p->inventory[i] = ITEM_EMPTY;
 
-    for (int i = 0; i < EQUIP_SLOTS; i++) {
-        p->equipment[i].name[0]     = '\0';
-        p->equipment[i].slot        = (enum EquipSlot)i;
-        p->equipment[i].bonus_hp    = 0;
-        p->equipment[i].bonus_stamina = 0;
-        p->equipment[i].is_equipped = 0;
-    }
+    /* Стартовая экипировка — предметы уже лежат в слотах */
+    p->equipment[SLOT_HEAD] = (Equipment){ "Кожаный шлем",   SLOT_HEAD, 5,  0 };
+    p->equipment[SLOT_BODY] = (Equipment){ "Льняная рубаха", SLOT_BODY, 10, 5 };
+    p->equipment[SLOT_FEET] = (Equipment){ "Лапти",          SLOT_FEET, 0,  5 };
+
+    player_recalc_stats(p);
 
     printf("Память структуры по адресу %p выделена (персонаж создан)\n",
-           (void *)p);
+        (void*)p);
     return p;
 }
 
-void player_destroy(Player *p)
+void player_destroy(Player* p)
 {
     if (p == NULL) return;
-    printf("Память структуры по адресу %p освобождена\n", (void *)p);
+    printf("Память структуры по адресу %p освобождена\n", (void*)p);
     free(p);
+}
+
+void player_reset_shield(Player* p)
+{
+    if (p == NULL) return;
+    p->shield_used = 0;
+    p->shield_active = 0;
 }
 
 /* ======================= ЭКИПИРОВКА ======================= */
 
-void player_recalc_stats(Player *p)
+void player_recalc_stats(Player* p)
 {
     if (p == NULL) return;
 
-    int new_max_hp      = BASE_MAX_HP;
+    int new_max_hp = BASE_MAX_HP;
     int new_max_stamina = BASE_MAX_STAMINA;
 
     for (int i = 0; i < EQUIP_SLOTS; i++) {
-        if (p->equipment[i].is_equipped) {
-            new_max_hp      += p->equipment[i].bonus_hp;
+        if (p->equipment[i].name[0] != '\0') {
+            new_max_hp += p->equipment[i].bonus_hp;
             new_max_stamina += p->equipment[i].bonus_stamina;
         }
     }
 
-    p->max_hp      = new_max_hp;
+    p->max_hp = new_max_hp;
     p->max_stamina = new_max_stamina;
 
-    if (p->hp      > p->max_hp)      p->hp      = p->max_hp;
+    if (p->hp > p->max_hp)      p->hp = p->max_hp;
     if (p->stamina > p->max_stamina) p->stamina = p->max_stamina;
 }
 
-int player_equip_item(Player *p, const Equipment *item)
+int player_equip_item(Player* p, const Equipment* item)
 {
     if (p == NULL || item == NULL) return 0;
     if (item->slot < 0 || item->slot >= EQUIP_SLOTS) return 0;
 
     p->equipment[item->slot] = *item;
-    p->equipment[item->slot].is_equipped = 1;
-
     player_recalc_stats(p);
     return 1;
 }
 
-int player_unequip_slot(Player *p, enum EquipSlot slot)
+int player_unequip_slot(Player* p, enum EquipSlot slot)
 {
     if (p == NULL || slot < 0 || slot >= EQUIP_SLOTS) return 0;
-    if (!p->equipment[slot].is_equipped) return 0;
+    if (p->equipment[slot].name[0] == '\0') return 0;
 
-    p->equipment[slot].is_equipped = 0;
+    p->equipment[slot].name[0] = '\0';
+    p->equipment[slot].bonus_hp = 0;
+    p->equipment[slot].bonus_stamina = 0;
     player_recalc_stats(p);
     return 1;
 }
 
-void player_show_equipment(const Player *p)
+void player_show_equipment(const Player* p)
 {
     if (p == NULL) return;
 
-    static const char *slot_names[EQUIP_SLOTS] = { "Голова", "Тело", "Обувь" };
+    static const char* slot_names[EQUIP_SLOTS] = { "Голова", "Тело", "Обувь" };
 
     printf("\n--- Экипировка ---\n");
     for (int i = 0; i < EQUIP_SLOTS; i++) {
         printf("  [%s] ", slot_names[i]);
-        if (p->equipment[i].is_equipped)
+        if (p->equipment[i].name[0] != '\0')
             printf("%s (+%d HP, +%d ST)\n",
-                   p->equipment[i].name,
-                   p->equipment[i].bonus_hp,
-                   p->equipment[i].bonus_stamina);
+                p->equipment[i].name,
+                p->equipment[i].bonus_hp,
+                p->equipment[i].bonus_stamina);
         else
-            printf("— пусто —\n");
+            printf("--- пусто ---\n");
     }
     printf("  Итого: max_hp=%d, max_stamina=%d\n",
-           p->max_hp, p->max_stamina);
+        p->max_hp, p->max_stamina);
 }
 
 /* ======================= ИНВЕНТАРЬ ======================= */
 
-void player_print_inventory(const Player *p)
+void player_print_inventory(const Player* p)
 {
     if (p == NULL) return;
 
@@ -132,7 +143,7 @@ void player_print_inventory(const Player *p)
     }
 }
 
-void player_add_item_to_slot(Player *p, int slot, int id)
+void player_add_item_to_slot(Player* p, int slot, int id)
 {
     if (p == NULL) return;
     if (slot < 0 || slot >= MAX_INVENTORY) return;
@@ -140,10 +151,10 @@ void player_add_item_to_slot(Player *p, int slot, int id)
 
     p->inventory[slot] = id;
     printf("В слот %d положен предмет [%d] (%s).\n",
-           slot, id, item_name(id));
+        slot, id, item_name(id));
 }
 
-void player_clear_slot(Player *p, int slot)
+void player_clear_slot(Player* p, int slot)
 {
     if (p == NULL) return;
     if (slot < 0 || slot >= MAX_INVENTORY) return;
@@ -152,7 +163,7 @@ void player_clear_slot(Player *p, int slot)
     printf("Слот %d очищен.\n", slot);
 }
 
-void player_check_neighbours(const Player *p, int id1, int id2)
+void player_check_neighbours(const Player* p, int id1, int id2)
 {
     if (p == NULL) return;
 
@@ -162,17 +173,17 @@ void player_check_neighbours(const Player *p, int id1, int id2)
         int b = p->inventory[i + 1];
         if ((a == id1 && b == id2) || (a == id2 && b == id1)) {
             printf("Да! Предметы [%d] (%s) и [%d] (%s) лежат рядом "
-                   "в слотах %d и %d.\n",
-                   id1, item_name(id1), id2, item_name(id2), i, i + 1);
+                "в слотах %d и %d.\n",
+                id1, item_name(id1), id2, item_name(id2), i, i + 1);
             found = 1;
         }
     }
     if (!found)
         printf("Нет. Предметы [%d] (%s) и [%d] (%s) не лежат рядом.\n",
-               id1, item_name(id1), id2, item_name(id2));
+            id1, item_name(id1), id2, item_name(id2));
 }
 
-void player_search_item(const Player *p, const char *query)
+void player_search_item(const Player* p, const char* query)
 {
     if (p == NULL || query == NULL) return;
 
@@ -192,14 +203,14 @@ void player_search_item(const Player *p, const char *query)
 
     if (found == 0)
         printf("Предмет '%s' (ID %d) есть в каталоге, но в рюкзаке его нет.\n",
-               query, id);
+            query, id);
     else
         printf("Всего найдено: %d шт.\n", found);
 }
 
-/* ======================= КАРТОЧКА ПЕРСОНАЖА ======================= */
+/* ======================= КАРТОЧКА ======================= */
 
-void player_print_card(const Player *p)
+void player_print_card(const Player* p)
 {
     if (p == NULL) {
         printf("Персонаж не создан!\n");
@@ -210,8 +221,16 @@ void player_print_card(const Player *p)
     printf("Имя:           %s\n", p->name);
     printf("HP:            %d/%d\n", p->hp, p->max_hp);
     printf("Выносливость:  %d/%d\n", p->stamina, p->max_stamina);
+    printf("Атака:         %d\n", p->attack);
+    printf("Защита:        %d\n", p->defense);
     printf("Золото:        %d\n", p->gold);
     printf("Координаты:    (%d, %d)\n", p->x, p->y);
+
+    if (p->shield_active)
+        printf("Щит:           АКТИВЕН (следующий удар заблокирован)\n");
+    else if (p->shield_used)
+        printf("Щит:           использован на этом этаже\n");
+
     printf("========================================\n");
     player_show_equipment(p);
     printf("----------------------------------------\n");

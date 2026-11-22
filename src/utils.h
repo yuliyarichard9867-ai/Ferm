@@ -9,17 +9,17 @@
 #define ERR_NOT_FOUND    -3
 
 /* Защита ввода */
-int read_line(char *buf, int size);
-int read_int_range(int min, int max, int *out);
+int read_line(char* buf, int size);
+int read_int_range(int min, int max, int* out);
 
 /* Каталог предметов (items.txt) */
-void        items_load(const char *filename);
-const char *item_name(int id);
-int         find_item_id_by_name(const char *query);
+void        items_load(const char* filename);
+const char* item_name(int id);
+int         find_item_id_by_name(const char* query);
 
 /* Дневник (diary.txt) */
-void write_diary(const char *farmer_name, int day, int hour,
-                 const int *inventory, int inv_size);
+void write_diary(const char* farmer_name, int day, int hour,
+    const int* inventory, int inv_size);
 
 /* Поисковик по энциклопедии (input.txt -> output.txt) */
 void process_input_file(void);

@@ -1,3 +1,4 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -5,15 +6,9 @@
 #include "utils.h"
 #include "player.h"
 
-/* ======================= ГЛОБАЛЬНЫЙ КАТАЛОГ ПРЕДМЕТОВ =======================
- * Это НЕ данные игрока, а статический справочник (аналог таблицы БД).
- * Изменяемое состояние игры (player, day, hour) — без глобалок.
- */
 static char item_names[MAX_ITEMS][MAX_NAME_LEN];
 
-/* ======================= ЗАЩИТА ВВОДА ======================= */
-
-int read_line(char *buf, int size)
+int read_line(char* buf, int size)
 {
     if (fgets(buf, size, stdin) == NULL)
         return ERR_INPUT;
@@ -25,14 +20,14 @@ int read_line(char *buf, int size)
     }
 
     int c;
-    while ((c = getchar()) != '\n' && c != EOF) { }
+    while ((c = getchar()) != '\n' && c != EOF) {}
     return ERR_INPUT;
 }
 
-int read_int_range(int min, int max, int *out)
+int read_int_range(int min, int max, int* out)
 {
     char buf[MAX_LINE_LEN];
-    char *end;
+    char* end;
 
     if (read_line(buf, sizeof(buf)) != OK)
         return ERR_INPUT;
@@ -47,11 +42,9 @@ int read_int_range(int min, int max, int *out)
     return OK;
 }
 
-/* ======================= КАТАЛОГ ПРЕДМЕТОВ ======================= */
-
 static void fill_default_items(void)
 {
-    static const char *defaults[MAX_ITEMS] = {
+    static const char* defaults[MAX_ITEMS] = {
         "Пусто", "Дерево", "Камень", "Семена",
         "Вода", "Удобрение", "Руда", "Саженцы",
         "Ягоды", "Компостер"
@@ -62,14 +55,14 @@ static void fill_default_items(void)
     }
 }
 
-void items_load(const char *filename)
+void items_load(const char* filename)
 {
     fill_default_items();
 
-    FILE *f = fopen(filename, "r");
+    FILE* f = fopen(filename, "r");
     if (f == NULL) {
         printf("Внимание: файл '%s' не найден — используются названия "
-               "по умолчанию.\n", filename);
+            "по умолчанию.\n", filename);
         return;
     }
 
@@ -92,13 +85,13 @@ void items_load(const char *filename)
     printf("Загружено названий предметов: %d из %d.\n", loaded, MAX_ITEMS);
 }
 
-const char *item_name(int id)
+const char* item_name(int id)
 {
     if (id < 0 || id >= MAX_ITEMS) return "???";
     return item_names[id];
 }
 
-int find_item_id_by_name(const char *query)
+int find_item_id_by_name(const char* query)
 {
     for (int i = 0; i < MAX_ITEMS; i++)
         if (strcmp(item_names[i], query) == 0)
@@ -106,12 +99,10 @@ int find_item_id_by_name(const char *query)
     return ERR_NOT_FOUND;
 }
 
-/* ======================= ДНЕВНИК ======================= */
-
-void write_diary(const char *farmer_name, int day, int hour,
-                 const int *inventory, int inv_size)
+void write_diary(const char* farmer_name, int day, int hour,
+    const int* inventory, int inv_size)
 {
-    FILE *f = fopen("diary.txt", "a");
+    FILE* f = fopen("diary.txt", "a");
     if (f == NULL) {
         printf("Ошибка: не удалось открыть diary.txt для записи.\n");
         return;
@@ -136,8 +127,6 @@ void write_diary(const char *farmer_name, int day, int hour,
     printf("Состояние записано в diary.txt.\n");
 }
 
-/* ======================= [9] ПОИСКОВИК ПО ЭНЦИКЛОПЕДИИ ======================= */
-
 static unsigned char cp1251_to_lower(unsigned char c)
 {
     if (c >= 'A' && c <= 'Z') return (unsigned char)(c + 32);
@@ -146,7 +135,7 @@ static unsigned char cp1251_to_lower(unsigned char c)
     return c;
 }
 
-static int find_substr_ci(const char *haystack, const char *needle)
+static int find_substr_ci(const char* haystack, const char* needle)
 {
     if (*needle == '\0') return 0;
     size_t nlen = strlen(needle);
@@ -154,19 +143,19 @@ static int find_substr_ci(const char *haystack, const char *needle)
     for (size_t i = 0; haystack[i] != '\0'; i++) {
         size_t j = 0;
         while (j < nlen && haystack[i + j] != '\0' &&
-               cp1251_to_lower((unsigned char)haystack[i + j]) ==
-               cp1251_to_lower((unsigned char)needle[j]))
+            cp1251_to_lower((unsigned char)haystack[i + j]) ==
+            cp1251_to_lower((unsigned char)needle[j]))
             j++;
         if (j == nlen) return (int)i;
     }
     return -1;
 }
 
-static int wrap_all_occurrences(const char *src, const char *needle,
-                                char *dst, size_t dst_size)
+static int wrap_all_occurrences(const char* src, const char* needle,
+    char* dst, size_t dst_size)
 {
     size_t nlen = strlen(needle);
-    size_t out  = 0;
+    size_t out = 0;
 
     if (nlen == 0) {
         if (strlen(src) + 1 > dst_size) return -1;
@@ -180,8 +169,8 @@ static int wrap_all_occurrences(const char *src, const char *needle,
             cp1251_to_lower((unsigned char)needle[0])) {
             size_t j = 0;
             while (j < nlen && src[i + j] != '\0' &&
-                   cp1251_to_lower((unsigned char)src[i + j]) ==
-                   cp1251_to_lower((unsigned char)needle[j]))
+                cp1251_to_lower((unsigned char)src[i + j]) ==
+                cp1251_to_lower((unsigned char)needle[j]))
                 j++;
 
             if (j == nlen) {
@@ -212,13 +201,13 @@ void process_input_file(void)
         return;
     }
 
-    FILE *in = fopen("input.txt", "r");
+    FILE* in = fopen("input.txt", "r");
     if (in == NULL) {
         printf("Ошибка: файл input.txt не найден.\n");
         return;
     }
 
-    FILE *out = fopen("output.txt", "w");
+    FILE* out = fopen("output.txt", "w");
     if (out == NULL) {
         printf("Ошибка: не удалось открыть output.txt для записи.\n");
         fclose(in);
@@ -228,7 +217,7 @@ void process_input_file(void)
     char line[MAX_LINE_LEN];
     char wrapped[OUTPUT_BUF_LEN];
     int  article_no = 0;
-    int  found      = 0;
+    int  found = 0;
 
     printf("\n--- Найденные статьи ---\n");
 
@@ -245,7 +234,7 @@ void process_input_file(void)
 
         if (wrap_all_occurrences(line, query, wrapped, sizeof(wrapped)) != 0) {
             printf("Предупреждение: статья %d слишком длинная, пропущена.\n",
-                   article_no);
+                article_no);
             continue;
         }
 

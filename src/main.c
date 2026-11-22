@@ -1,6 +1,8 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>          /* для time() / srand */
 
 #ifdef _WIN32
 #include <windows.h>
@@ -17,18 +19,19 @@
 #define MENU_EQUIPMENT        3
 #define MENU_SHOW_TIME        4
 #define MENU_SKIP_TIME        5
-#define MENU_INVENTORY        6
-#define MENU_ADD_ITEM         7
-#define MENU_CLEAR_SLOT       8
-#define MENU_NEIGHBOURS       9
-#define MENU_SEARCH_ITEM      10
-#define MENU_DIARY            11
-#define MENU_ENCYCLOPEDIA     12
-#define MENU_MAX              12
+#define MENU_SLEEP            6
+#define MENU_INVENTORY        7
+#define MENU_ADD_ITEM         8
+#define MENU_CLEAR_SLOT       9
+#define MENU_NEIGHBOURS       10
+#define MENU_SEARCH_ITEM      11
+#define MENU_DIARY            12
+#define MENU_ENCYCLOPEDIA     13
+#define MENU_ADVENTURE        14
+#define MENU_MAX              14
 
-/* ======================= ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ======================= */
+/* ======================= ВСПОМОГАТЕЛЬНЫЕ ======================= */
 
-/* Спрашивает имя фермера с защитой от пустого ввода. */
 static void ask_farmer_name(char* out, int size)
 {
     while (1) {
@@ -42,7 +45,6 @@ static void ask_farmer_name(char* out, int size)
     }
 }
 
-/* Создание / пересоздание персонажа с подтверждением удаления старого. */
 static Player* menu_create_player(Player* old_player)
 {
     if (old_player != NULL) {
@@ -50,7 +52,6 @@ static Player* menu_create_player(Player* old_player)
         printf("Персонаж уже существует. Удалить? [1-да / 0-нет]: ");
         if (read_int_range(0, 1, &ok) != OK || !ok)
             return old_player;
-
         player_destroy(old_player);
     }
 
@@ -59,7 +60,6 @@ static Player* menu_create_player(Player* old_player)
     return player_create(name);
 }
 
-/* Подменю «Управление снаряжением» */  //Из варианта
 static void menu_equipment(Player* player)
 {
     if (player == NULL) {
@@ -138,7 +138,6 @@ static void menu_equipment(Player* player)
     }
 }
 
-/* Добавление предмета в слот инвентаря. */
 static void menu_add_item(Player* player)
 {
     if (player == NULL) { printf("Нет персонажа.\n"); return; }
@@ -157,7 +156,6 @@ static void menu_add_item(Player* player)
     player_add_item_to_slot(player, slot, id);
 }
 
-/* Очистка слота инвентаря. */
 static void menu_clear_slot(Player* player)
 {
     if (player == NULL) { printf("Нет персонажа.\n"); return; }
@@ -171,7 +169,6 @@ static void menu_clear_slot(Player* player)
     player_clear_slot(player, slot);
 }
 
-/* Проверка соседних ячеек. */
 static void menu_neighbours(Player* player)
 {
     if (player == NULL) { printf("Нет персонажа.\n"); return; }
@@ -190,7 +187,6 @@ static void menu_neighbours(Player* player)
     player_check_neighbours(player, id1, id2);
 }
 
-/* Поиск предмета по названию. */
 static void menu_search_item(Player* player)
 {
     if (player == NULL) { printf("Нет персонажа.\n"); return; }
@@ -204,7 +200,6 @@ static void menu_search_item(Player* player)
     player_search_item(player, query);
 }
 
-/* Запись дневника — параметры вместо глобалок. */
 static void menu_diary(Player* player, const GameState* game)
 {
     if (player == NULL) { printf("Нет персонажа.\n"); return; }
@@ -214,7 +209,7 @@ static void menu_diary(Player* player, const GameState* game)
         player->inventory, MAX_INVENTORY);
 }
 
-/* ======================= ВЫВОД ШАПКИ И МЕНЮ ======================= */
+/* ======================= МЕНЮ ======================= */
 
 static void print_header(const Player* player, const GameState* game)
 {
@@ -232,7 +227,8 @@ static void print_menu(void)
     printf("[%2d] Карточка персонажа\n", MENU_PLAYER_CARD);
     printf("[%2d] Управление снаряжением\n", MENU_EQUIPMENT);
     printf("[%2d] Посмотреть на часы\n", MENU_SHOW_TIME);
-    printf("[%2d] Промотать время\n", MENU_SKIP_TIME);
+    printf("[%2d] Промотать время \n", MENU_SKIP_TIME);
+    printf("[%2d] Лечь спать \n", MENU_SLEEP);
     printf("[%2d] Посмотреть инвентарь\n", MENU_INVENTORY);
     printf("[%2d] Положить предмет в слот\n", MENU_ADD_ITEM);
     printf("[%2d] Выбросить предмет\n", MENU_CLEAR_SLOT);
@@ -240,6 +236,7 @@ static void print_menu(void)
     printf("[%2d] Поиск предмета по названию\n", MENU_SEARCH_ITEM);
     printf("[%2d] Записать состояние в дневник\n", MENU_DIARY);
     printf("[%2d] Поиск по энциклопедии\n", MENU_ENCYCLOPEDIA);
+    printf("[%2d] Отправиться в приключение\n", MENU_ADVENTURE);
     printf("[%2d] Выход\n", MENU_EXIT);
     printf("Выбор: ");
 }
@@ -252,6 +249,8 @@ int main(void)
     SetConsoleCP(65001);
     SetConsoleOutputCP(65001);
 #endif
+
+    srand((unsigned)time(NULL));   /* для генерации карты */
 
     items_load("items.txt");
 
@@ -294,15 +293,34 @@ int main(void)
 
         case MENU_SKIP_TIME: {
             if (game == NULL) break;
+
+            /* сколько максимум можно промотать до 02:00 */
+            int max_hours;
+            if (game->current_hour < NIGHT_HOUR) {
+                max_hours = NIGHT_HOUR - game->current_hour;
+            }
+            else {
+                max_hours = (24 - game->current_hour) + NIGHT_HOUR;
+            }
+
             int hours;
-            printf("Сколько часов промотать? ");
-            if (read_int_range(0, 1000000, &hours) != OK) {
-                printf("Некорректное число часов.\n");
+            printf("Сколько часов промотать? (0-%d): ", max_hours);
+            if (read_int_range(0, max_hours, &hours) != OK) {
+                printf("Ошибка: можно от 0 до %d ч (до 02:00).\n", max_hours);
                 break;
             }
             game_skip_time(game, hours);
             break;
         }
+
+        case MENU_SLEEP:
+            if (player == NULL) { printf("Сначала создайте персонажа!\n"); break; }
+            if (game == NULL) break;
+            game_sleep(game);
+            player->hp = player->max_hp;
+            player->stamina = player->max_stamina;
+            printf("HP и выносливость восстановлены до максимума.\n");
+            break;
 
         case MENU_INVENTORY:
             if (player == NULL) { printf("Сначала создайте персонажа!\n"); break; }
@@ -333,6 +351,11 @@ int main(void)
             process_input_file();
             break;
 
+        case MENU_ADVENTURE:
+            if (player == NULL) { printf("Сначала создайте персонажа!\n"); break; }
+            adventure_run(game, player);
+            break;
+
         case MENU_EXIT:
             printf("Выход из программы.\n");
             break;
@@ -342,9 +365,14 @@ int main(void)
         }
     }
 
-    /* Очистка динамической памяти при выходе */
     if (player != NULL) player_destroy(player);
     if (game != NULL) game_destroy(game);
 
     return 0;
 }
+
+/*Исправить предметы будут изначально
+убрать isequipt стр 24 
+456 в меню сделать в 1 пункт
+7891011 в подменю
+12 13 в один пункт меню*/
