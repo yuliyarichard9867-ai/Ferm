@@ -12,7 +12,7 @@ GameState* game_create(void)
 {
     GameState* g = (GameState*)malloc(sizeof(GameState));
     if (g == NULL) return NULL;
-    g->current_day = MAP_START_DAY;
+    g->current_day = MAP_START_DAY; 
     g->current_hour = MAP_START_HOUR;
     g->map = NULL;
     printf("Память структуры по адресу %p выделена (GameState)\n", (void*)g);
