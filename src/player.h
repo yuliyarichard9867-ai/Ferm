@@ -46,7 +46,7 @@ typedef struct Player {
     int inventory[MAX_INVENTORY];
     Equipment equipment[EQUIP_SLOTS];
 
-    /* ВАРИАНТ 8: магический щит */
+    /* магический щит */
     int shield_used;
     int shield_active;
 } Player;
